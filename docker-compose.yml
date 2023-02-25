@@ -1,0 +1,87 @@
+version: "3.6"
+
+services:
+  koi-wiki-api-prod:
+    container_name: koi-wiki-api-prod
+    image: knifeonlyi/koi-wiki-api:1.0.0
+    ports:
+      - "8080:8080"
+    environment:
+      KOI_WIKI_PROFILE: prod
+      KOI_WIKI_DATABASE_HOST: koi-wiki-api-database-prod
+      KOI_WIKI_DATABASE_PORT: 5432
+      KOI_WIKI_DATABASE_NAME: koi_wiki
+      KOI_WIKI_DATABASE_USER: koi_wiki
+      KOI_WIKI_DATABASE_PASSWORD: koi_wiki
+      KOI_WIKI_KEYCLOAK_HOST: http://koi-wiki-keycloak-prod
+      KOI_WIKI_KEYCLOAK_PORT: 8080
+      KOI_WIKI_KEYCLOAK_REALM: koi-wiki
+      KOI_WIKI_KEYCLOAK_CLIENT_ID: koi-wiki-api
+      KOI_WIKI_KEYCLOAK_AUTHORIZED_TOKEN_ISSUER: http://localhost:8082
+    networks:
+      - koi-wiki-prod-network
+    depends_on:
+      - koi-wiki-api-database-prod
+      - koi-wiki-keycloak-prod
+
+  koi-wiki-webapp-prod:
+    container_name: koi-wiki-webapp-prod
+    image: nginx:1.23.3-alpine
+    ports:
+      - "8081:80"
+    volumes:
+      - ./webapp:/usr/share/nginx/html
+    depends_on:
+      - koi-wiki-api-prod
+
+  koi-wiki-keycloak-prod:
+    container_name: koi-wiki-keycloak-prod
+    image: quay.io/keycloak/keycloak:20.0.3
+    entrypoint: /opt/keycloak/bin/kc.sh start
+    ports:
+      - "8082:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_ENABLED: true
+      KC_HOSTNAME_STRICT: false
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://koi-wiki-keycloak-database-prod/koi_wiki
+      KC_DB_USERNAME: koi_wiki
+      KC_DB_PASSWORD: koi_wiki
+    networks:
+      - koi-wiki-prod-network
+    depends_on:
+      - koi-wiki-keycloak-database-prod
+
+  koi-wiki-api-database-prod:
+    container_name: koi-wiki-api-database-prod
+    image: postgres:15.1-alpine3.17
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: koi_wiki
+      POSTGRES_USER: koi_wiki
+      POSTGRES_PASSWORD: koi_wiki
+    volumes:
+      - ./data/api/database:/var/lib/postgresql/data
+    networks:
+      - koi-wiki-prod-network
+
+  koi-wiki-keycloak-database-prod:
+    container_name: koi-wiki-keycloak-database-prod
+    image: postgres:15.1-alpine3.17
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: koi_wiki
+      POSTGRES_USER: koi_wiki
+      POSTGRES_PASSWORD: koi_wiki
+    volumes:
+      - ./data/keycloak/database:/var/lib/postgresql/data
+    networks:
+      - koi-wiki-prod-network
+
+networks:
+  koi-wiki-prod-network:
+    name: koi-wiki-prod-network
